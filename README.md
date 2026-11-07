@@ -29,6 +29,21 @@ In addition, [Laracasts](https://laracasts.com) contains thousands of video tuto
 
 You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
 
+## SAMI student ID screening
+
+ID uploads are screened with Gemini before the account is activated. The model must recognize TUP branding and the `TUPT-YY-NNNN` number, and the extracted student number plus first and last name must match the registered account. A failed match marks the submission rejected and sign-in shows a help path. This image check is not a substitute for an authoritative current-student roster.
+
+Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then from this backend directory run:
+
+```powershell
+.\scripts\configure-gemini-id-verification.ps1
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+The API tries Gemini Flash models in order (`GEMINI_MODEL`, then `GEMINI_FALLBACK_MODELS`) if Google temporarily returns a model-unavailable, server-busy, or timeout response. The default order starts with 3.6 Flash, which passed a screening test with the supplied sample card.
+
+The script prompts for the key without echoing it and stores it only in the backend `.env`. Do not put the key in Flutter or send it in chat. Student ID images are sent to Google Gemini for screening; make sure your students are informed before enabling this feature.
+
 ## Agentic Development
 
 Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:

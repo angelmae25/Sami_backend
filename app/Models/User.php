@@ -11,8 +11,16 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['name', 'email', 'password', 'student_id'])]
+#[Hidden([
+    'password',
+    'remember_token',
+    'otp_hash',
+    'otp_registration_id',
+    'otp_expires_at',
+    'otp_last_sent_at',
+    'otp_attempts',
+])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -27,6 +35,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'otp_expires_at' => 'datetime',
+            'otp_last_sent_at' => 'datetime',
+            'otp_attempts' => 'integer',
             'password' => 'hashed',
         ];
     }

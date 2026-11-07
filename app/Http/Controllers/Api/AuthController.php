@@ -4,56 +4,69 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    public function login(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
+            'email' => ['required', 'email'],
+            'student_id' => ['required', 'string', 'regex:/^TUPT-[0-9]{2}-[0-9]{4}$/'],
+            'password' => ['required', 'string'],
         ]);
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-        ]);
-
-        $token = $user->createToken('sami-mobile')->plainTextToken;
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Registration successful.',
-            'token' => $token,
-            'token_type' => 'Bearer',
-            'user' => $user,
-        ], 201);
-    }
-
-    public function login(Request $request)
-    {
-        $validated = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
-
-        $user = User::where('email', $validated['email'])->first();
+        $user = User::query()
+            ->where('email', strtolower($validated['email']))
+            ->where('student_id', strtoupper($validated['student_id']))
+            ->first();
 
         if (!$user || !Hash::check($validated['password'], $user->password)) {
             return response()->json([
-                'success' => false,
-                'message' => 'Invalid email or password.',
+                'error' => [
+                    'code' => 'INVALID_CREDENTIALS',
+                    'message' => 'Invalid email or password.',
+                ],
             ], 401);
         }
 
         if (!in_array($user->role, ['student', 'acso_officer'], true)) {
             return response()->json([
-                'success' => false,
-                'message' => 'This account is not authorized for mobile access.',
+                'error' => [
+                    'code' => 'FORBIDDEN',
+                    'message' => 'This account is not authorized for mobile access.',
+                ],
+            ], 403);
+        }
+
+        if ($user->email_verified_at === null && $user->status === 'pending' && $user->otp_registration_id !== null) {
+            return response()->json([
+                'error' => [
+                    'code' => 'EMAIL_NOT_VERIFIED',
+                    'message' => 'Your account is saved but your TUP email is not verified yet.',
+                ],
+                'registration_id' => $user->otp_registration_id,
+            ], 403);
+        }
+
+        if ($user->status === 'rejected') {
+            return response()->json([
+                'error' => [
+                    'code' => 'ID_REJECTED',
+                    'message' => 'Your student ID could not be approved. Contact SAMI support for help.',
+                ],
+                'registration_id' => $user->otp_registration_id,
+            ], 403);
+        }
+
+        if ($user->status !== 'active' || $user->email_verified_at === null) {
+            return response()->json([
+                'error' => [
+                    'code' => 'ACCOUNT_PENDING_REVIEW',
+                    'message' => 'Your student ID is awaiting eligibility review.',
+                ],
             ], 403);
         }
 
@@ -61,14 +74,13 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Login successful.',
-            'token' => $token,
             'token_type' => 'Bearer',
+            'access_token' => $token,
             'user' => $user,
         ]);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()?->delete();
 

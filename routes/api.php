@@ -1,10 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\RegistrationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// Public API status
 Route::get('/status', function () {
     return response()->json([
         'success' => true,
@@ -13,20 +13,25 @@ Route::get('/status', function () {
     ]);
 });
 
-// Public authentication routes
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::prefix('v1')->group(function (): void {
+    Route::post('/registrations', [RegistrationController::class, 'store'])
+        ->middleware('throttle:6,1');
+    Route::post('/registrations/{registrationId}/otp/verify', [RegistrationController::class, 'verify'])
+        ->middleware('throttle:10,1');
+    Route::post('/registrations/{registrationId}/otp/resend', [RegistrationController::class, 'resend'])
+        ->middleware('throttle:2,1');
+    Route::post('/registrations/{registrationId}/id-submission', [RegistrationController::class, 'submitId'])
+        ->middleware('throttle:3,1');
 
-// Protected authentication routes
-Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/auth/login', [AuthController::class, 'login'])
+        ->middleware('throttle:6,1');
 
-    Route::post('/logout', [AuthController::class, 'logout']);
-
-    Route::get('/user', function (Request $request) {
-        return response()->json([
-            'success' => true,
-            'user' => $request->user(),
-        ]);
+    Route::middleware('auth:sanctum')->group(function (): void {
+        Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::get('/me', function (Request $request) {
+            return response()->json([
+                'user' => $request->user(),
+            ]);
+        });
     });
-
 });
